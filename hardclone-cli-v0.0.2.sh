@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Dawid Bielecki
+
 set -euo pipefail
 
 TMP_DIR="/tmp"
