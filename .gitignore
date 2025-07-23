@@ -1,2 +1,4 @@
 *.img
 
+# Temp folders
+/tmp
