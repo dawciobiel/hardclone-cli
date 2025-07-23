@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2025 Dawid Bielecki
 
 set -e
