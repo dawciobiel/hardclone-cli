@@ -1,7 +1,82 @@
 #!/usr/bin/env bash
 
+# hardclone-cli v1.0.0
+# Interactive CLI tool for creating and restoring disk/partition images
+#
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2025 Dawid Bielecki
+#
+# DESCRIPTION:
+#   Interactive Bash-based tool for disk image management via terminal.
+#   Supports both image creation from partitions and image restoration
+#   to partitions with encryption, compression, and verification features.
+#
+# FEATURES:
+#   • Dual mode operation (create/restore)
+#   • Auto-detection of image formats from file extensions
+#   • Encryption: AES-256-CBC, ChaCha20 (via OpenSSL)
+#   • Compression: gzip, xz, zstandard
+#   • Image verification and checksum generation (SHA256, MD5)
+#   • Safety confirmations and warnings
+#   • Optional image splitting for large files
+#
+# FILE FORMAT CONVENTION:
+#   .himg                  - Raw image (uncompressed, unencrypted)
+#   .himg.aes256           - AES-256 encrypted
+#   .himg.chacha20         - ChaCha20 encrypted
+#   .himg.gz               - Gzip compressed
+#   .himg.xz               - XZ/LZMA compressed
+#   .himg.zst              - Zstandard compressed
+#   .himg.aes256.gz        - AES-256 encrypted, then gzip compressed
+#   .himg.chacha20.xz      - ChaCha20 encrypted, then XZ compressed
+#
+# REQUIREMENTS:
+#   • bash (4.0+)
+#   • coreutils: dd, lsblk
+#   • openssl (for encryption)
+#   • Optional: gzip, xz, zstd, sha256sum, md5sum, split
+#
+# USAGE:
+#   ./hardclone-cli.sh
+#
+#   Follow the interactive prompts to:
+#   1. Choose operation mode (create/restore)
+#   2. Select disk and partition
+#   3. Configure encryption and compression
+#   4. Set verification and splitting options
+#
+# EXAMPLES:
+#   Create encrypted and compressed image:
+#     Choose: Create → Select partition → AES-256 → gzip
+#     Result: backup.himg.aes256.gz
+#
+#   Restore image with auto-detection:
+#     Choose: Restore → Enter: backup.himg.chacha20.xz → Select target
+#     Auto-detects: ChaCha20 encryption + XZ compression
+#
+# SECURITY NOTES:
+#   • Uses OpenSSL with PBKDF2 key derivation
+#   • Passwords are prompted securely (not visible in process list)
+#   • Verification compares restored data with original partition
+#   • Checksum files help verify image integrity
+#
+# WARNING:
+#   This tool performs low-level disk operations. Incorrect usage can
+#   result in data loss. Always verify partition selections and have
+#   backups before restoring images.
+#
+# AUTHOR:
+#   Dawid Bielecki <dawciobiel@gmail.com>
+#   GitHub: https://github.com/dawciobiel/hardclone-cli
+#
+# VERSION HISTORY:
+#   v1.0.0 - Initial release with create/restore functionality
+#
+# LICENSE:
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 
 set -euo pipefail
 
