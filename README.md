@@ -165,5 +165,6 @@ Use this tool at your own risk. It operates at a low level (`dd`) and can overwr
 
 ## Author
 
-**Dawid Bielecki - dawciobiel**
-GitHub: [https://github.com/dawciobiel/hardclone-cli](https://github.com/dawciobiel/hardclone-cli)
+- **Dawid Bielecki - dawciobiel**
+
+- GitHub: [https://github.com/dawciobiel/hardclone-cli](https://github.com/dawciobiel/hardclone-cli)
