@@ -123,7 +123,7 @@ The script uses multiple methods to detect storage devices:
 
 ```
 cli/
-├── hcli.py              # Main script
+├── hcli.py             # Main script
 ├── VERSION             # Version file (auto-generated)
 ├── README.md           # This file
 └── LICENSE             # GPL-3.0 license
