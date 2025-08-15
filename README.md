@@ -1,170 +1,231 @@
-# hardclone-cli
+# Hardclone CLI
 
-**hardclone-cli** is a lightweight, interactive Bash-based tool for creating full disk/partition images via terminal — ideal for remote or SSH-based usage. It supports compression, optional encryption, image splitting, verification, and checksum generation.
+**Interactive partition backup creator with encryption, compression, and file splitting**
 
-## Features
+<img width="660" height="359" alt="image" src="https://github.com/user-attachments/assets/69d5aa38-ecc8-4bc8-bafb-f5f21cf6b20a" />
 
-- Interactive CLI interface
-- Lists available disks and partitions
-- Supports popular compression formats:
-  - `gzip`
-  - `zstd`
-  - `bzip2`
-  - `xz`
-- Optional GPG encryption (with interactive passphrase prompt)
-- Optional image splitting into 2GB chunks
-- Optional verification (`cmp`) against source
-- Optional hash generation (SHA256 + MD5)
 
-## Requirements
+![Version](https://img.shields.io/badge/version-v2.0.0-blue) ![License](https://img.shields.io/badge/license-GPL--3.0-green) ![Python](https://img.shields.io/badge/python-3.6+-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)
 
-- `bash`
-- `dd`
-- `lsblk`
-- Compression tools: `gzip`, `zstd`, `bzip2`, `xz` (as selected)
-- Optional: `gpg`, `cmp`, `sha256sum`, `md5sum`, `split`
+## 📖 Description
 
-## Usage
+Hardclone CLI is an interactive Python script that provides a user-friendly dialog interface for creating partition backups with advanced features like encryption, compression, and file splitting. Built for Linux systems, it uses the powerful `dd` command with additional processing pipelines to create secure and efficient backups.
 
-Simply run the script from the terminal:
+## ✨ Features
+
+- 🖥️ **Interactive Dialog Interface** - Easy-to-use text-based UI
+- 💾 **Smart Device Detection** - Automatically discovers storage devices and partitions
+- 🔒 **AES-256-CBC Encryption** - Secure your backups with strong encryption
+- 🗜️ **Gzip Compression** - Reduce backup file sizes
+- ✂️ **File Splitting** - Split large backups into manageable chunks
+- 📊 **Space Validation** - Checks available disk space before backup
+- 🔧 **Multiple Detection Methods** - Robust device discovery with fallbacks
+- 🚀 **Progress Feedback** - Visual feedback during backup operations
+
+## 📋 Requirements
+
+### System Requirements
+
+- **OS**: Linux (any modern distribution)
+- **Python**: 3.6 or higher
+- **Privileges**: Root access required
+
+### Python Dependencies
 
 ```bash
-chmod +x hardclone-cli.sh
-./hardclone-cli.sh
+pip3 install pythondialog
 ```
 
-You will be guided step-by-step through:
+### System Tools
 
-1. Selecting a disk and partition
-2. Naming the output image file
-3. Choosing compression and encryption
-4. (Optional) Enabling image split, verify, and checksum options
+The following tools should be available (usually pre-installed):
 
-### Example session:
+- `dd` - For creating disk images
+- `lsblk` - For listing storage devices
+- `blockdev` - For getting device information
+- `openssl` - For encryption (optional)
+- `gzip` - For compression (optional)
+- `split` - For file splitting (optional)
 
-```
---------------------------------------------------------------------------------------------
+## 🚀 Installation
 
-Available disks:
-1    sda  512G  Samsung SSD
-2    sdb  2T    WDC WD20EZRZ
+1. **Clone the repository:**
 
---------------------------------------------------------------------------------------------
+   ```bash
+   git clone https://github.com/dawciobiel/hardclone-cli.git
+   cd cli
+   ```
 
-Select disk number: 2
+2. **Install dependencies:**
 
---------------------------------------------------------------------------------------------
+   ```bash
+   pip3 install pythondialog
+   ```
 
-Selected disk: /dev/sdb
+3. **Make executable:**
 
-Available partitions on /dev/sdb:
-1)  /dev/sdb1   1T
-2)  /dev/sdb2   1T
+   ```bash
+   chmod +x hcli.py
+   ```
 
---------------------------------------------------------------------------------------------
+## 📖 Usage
 
-Select partition number: 1
+**Run as root:**
 
---------------------------------------------------------------------------------------------
-
-Selected partition: sdb1
-
-Enter filename for the image: backup_july2025
-
---------------------------------------------------------------------------------------------
-
-Enable encryption with GPG?
-1) Yes
-2) No
-#? 1
-
---------------------------------------------------------------------------------------------
-
-Select compression method:
-1) none
-2) gzip
-3) zstd
-4) bzip2
-5) xz
-#? 3
-
---------------------------------------------------------------------------------------------
-
-Do you want to split the image?
-1) Yes
-2) No
-#? 2
-
---------------------------------------------------------------------------------------------
-
-Do you want to verify the image?
-1) Yes
-2) No
-#? 1
-
---------------------------------------------------------------------------------------------
-
-Do you want to create checksums (SHA256, MD5)?
-1) Yes
-2) No
-#? 1
-
---------------------------------------------------------------------------------------------
-
-Creating image of sdb1...
-Executing: dd if=/dev/sdb1 bs=4M status=progress | zstd | gpg --symmetric --cipher-algo AES256 > "/tmp/backup_july2025.img.zst.gpg"
-
---------------------------------------------------------------------------------------------
-
-Splitting skipped (user chose No).
-
---------------------------------------------------------------------------------------------
-
-Verifying image...
-Verification completed.
-
---------------------------------------------------------------------------------------------
-
-Generating checksums...
-Checksums saved to:
-/tmp/backup_july2025.img.zst.gpg.sha256
-/tmp/backup_july2025.img.zst.gpg.md5
-
---------------------------------------------------------------------------------------------
-
-Done.
+```bash
+sudo python3 hcli.py
 ```
 
-## Output
+### Step-by-Step Process
 
-The resulting image will be stored in `/tmp` by default (or the directory set in the script). Depending on options, files might look like:
+1. **Device Selection** - Choose source storage device
+2. **Partition Selection** - Select specific partition to backup
+3. **Output Path** - Specify destination for backup file
+4. **Encryption** - Optionally encrypt with password
+5. **Compression** - Optionally compress to save space
+6. **File Splitting** - Optionally split into smaller files
+7. **Summary Review** - Confirm operation details
+8. **Backup Creation** - Automated backup process
+
+### Example Output Files
+
+Depending on your choices, output files will be named:
+
+- **Plain**: `backup_sda1.img`
+- **Compressed**: `backup_sda1.img.gz`
+- **Encrypted**: `backup_sda1.img.enc`
+- **Compressed + Encrypted**: `backup_sda1.img.gz.enc`
+- **Split**: `backup_sda1.img.aa`, `backup_sda1.img.ab`, etc.
+
+## 🔧 Features Details
+
+### Device Detection
+
+The script uses multiple methods to detect storage devices:
+
+1. `lsblk -d` for direct device listing
+2. `lsblk` with parent filtering for comprehensive detection
+3. `/proc/partitions` parsing as fallback
+4. Direct `/dev/` scanning for maximum compatibility
+
+### Supported File Formats
+
+- **Sizes**: K, M, G, T (e.g., `1G`, `500M`, `2048K`)
+- **Encryption**: AES-256-CBC with PBKDF2
+- **Compression**: Gzip format
+
+### Security Features
+
+- Password confirmation for encryption
+- No password storage in memory after use
+- Secure OpenSSL encryption parameters
+
+## 📁 File Structure
 
 ```
-/tmp/backup_july2025.img.zst.gpg
-/tmp/backup_july2025.img.zst.gpg.sha256
-/tmp/backup_july2025.img.zst.gpg.md5
+cli/
+├── hcli.py              # Main script
+├── VERSION             # Version file (auto-generated)
+├── README.md           # This file
+└── LICENSE             # GPL-3.0 license
 ```
 
-If split was selected:
+## ⚠️ Important Notes
 
+- **Always run as root** - Required for low-level disk access
+- **Backup critical data** - Test on non-critical systems first
+- **Check disk space** - Ensure sufficient space for backups
+- **Verify backups** - Always verify backup integrity after creation
+- **Keep passwords safe** - Store encryption passwords securely
+
+## 🔄 Restoring Backups
+
+### Plain Image
+
+```bash
+sudo dd if=backup_sda1.img of=/dev/sda1 bs=1M
 ```
-/tmp/backup_july2025.img.zst.gpg.part_aa
-/tmp/backup_july2025.img.zst.gpg.part_ab
-...
+
+### Compressed Image
+
+```bash
+gunzip -c backup_sda1.img.gz | sudo dd of=/dev/sda1 bs=1M
 ```
 
-## License
+### Encrypted Image
 
-This project is licensed under the GNU General Public License v3.0 – see the [`LICENSE`](LICENSE) file for details.
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -in backup_sda1.img.enc | sudo dd of=/dev/sda1 bs=1M
+```
 
-## Disclaimer
+### Split Files
 
-Use this tool at your own risk. It operates at a low level (`dd`) and can overwrite or misread data if misused. Always double-check the selected disk/partition before proceeding.
+```bash
+# First, combine split files
+cat backup_sda1.img.* > backup_sda1.img
+# Then restore as plain image
+sudo dd if=backup_sda1.img of=/dev/sda1 bs=1M
+```
 
----
+## 🐛 Troubleshooting
 
-## Author
+### Common Issues
 
-- **Dawid Bielecki - dawciobiel**
+**"No storage devices found"**
 
-- GitHub: [https://github.com/dawciobiel/hardclone-cli](https://github.com/dawciobiel/hardclone-cli)
+- Ensure you're running as root
+- Check if devices are properly connected
+- Verify `lsblk` command works manually
+
+**"python3-dialog module not installed"**
+
+```bash
+pip3 install pythondialog
+# or
+sudo apt-get install python3-dialog
+```
+
+**"This script must be run as root"**
+
+```bash
+sudo python3 hcli.py
+```
+
+**Backup fails with "No space left on device"**
+
+- Check available disk space with `df -h`
+- Choose a destination with sufficient space
+- Consider using compression to reduce file size
+
+## 📝 Version History
+
+- **v2.0.0** - Enhanced device detection, improved UI, better error handling
+- **v1.x.x** - Initial release with basic functionality
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
+
+## 👨‍💻 Author
+
+**Dawid Bielecki "dawciobiel"**
+
+## 👨‍💻 Beta testers
+
+[AlphaOneWhiskeyFour](<https://github.com/AlphaOneWhiskeyFour>)
+
+## ⭐ Support
+
+If you find this tool useful, please consider giving it a star on GitHub!
+
+------
+
+**⚠️ Disclaimer**: This tool performs low-level disk operations. Always backup important data before use. The author is not responsible for any data loss.
