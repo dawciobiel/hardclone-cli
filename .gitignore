@@ -1,4 +1,7 @@
 *.img
 
+# Releases
+releases/
+
 # Temp folders
 /tmp
