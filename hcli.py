@@ -86,30 +86,103 @@ def format_size(bytes_size):
 def list_devices():
     """Return list of available storage devices."""
     devices = []
+    found_devices = set()
+
+    # Method 1: Try lsblk -d first
     try:
         output = subprocess.check_output(
             "lsblk -d -o NAME,SIZE,MODEL,TYPE --noheadings", shell=True, text=True
         )
         for line in output.strip().splitlines():
             parts = line.split(None, 3)
-            if len(parts) < 4:
-                continue
-            name, size, model, typ = parts
-            if typ == "disk" or typ == "":
-                devices.append((name, f"{size} | {model.strip()}"))
+            if len(parts) >= 3:
+                name = parts[0]
+                size = parts[1]
+
+                # Skip loop, ram, rom and other virtual devices by name
+                if name.startswith(('loop', 'ram', 'rom', 'dm-', 'sr')):
+                    continue
+
+                if len(parts) == 3:
+                    model = parts[2] if parts[2] != '-' else "Unknown model"
+                    typ = "disk"
+                elif len(parts) == 4:
+                    model = parts[2] if parts[2] != '-' else "Unknown model"
+                    typ = parts[3]
+                else:
+                    model = "Unknown model"
+                    typ = "disk"
+
+                # Only include disk type devices and exclude virtual devices
+                if typ == "disk" and not name.startswith(('loop', 'ram', 'rom', 'dm-', 'sr')):
+                    devices.append((name, f"{size} | {model.strip()}"))
+                    found_devices.add(name)
     except Exception:
         pass
 
-    # fallback: /dev/sd* and /dev/nvme* if no devices detected
+    # Method 2: Try lsblk without -d and filter for parent devices
+    try:
+        output = subprocess.check_output(
+            "lsblk -o NAME,SIZE,MODEL,TYPE,PKNAME --noheadings", shell=True, text=True
+        )
+        for line in output.strip().splitlines():
+            parts = line.split(None, 4)
+            if len(parts) >= 4:
+                name = parts[0].lstrip('├─└─│ ')  # Remove tree characters
+                size = parts[1]
+                model = parts[2] if parts[2] != '-' else "Unknown model"
+                typ = parts[3]
+                pkname = parts[4] if len(parts) > 4 else ""
+
+                # Include only disk type devices (exclude loop, rom, etc.) that are not already found and have no parent
+                if (typ == "disk" and not pkname and name not in found_devices and
+                    not name.startswith(('loop', 'ram', 'rom', 'dm-', 'sr'))):
+                    devices.append((name, f"{size} | {model.strip()}"))
+                    found_devices.add(name)
+    except Exception:
+        pass
+
+    # Method 3: Direct /proc/partitions parsing as additional fallback
+    try:
+        with open('/proc/partitions', 'r') as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 4 and parts[3] and not any(char.isdigit() for char in parts[3][-1]):
+                    # This is likely a whole disk (no partition number at the end)
+                    name = parts[3]
+                    # Only include real disk devices, exclude loop, ram, etc.
+                    if (name not in found_devices and
+                        name.startswith(('sd', 'nvme', 'vd', 'hd')) and
+                        not name.startswith(('loop', 'ram', 'dm-'))):
+                        try:
+                            dev_path = f"/dev/{name}"
+                            size_bytes = int(subprocess.check_output(f"blockdev --getsize64 {dev_path}", shell=True, text=True))
+                            size_str = format_size(size_bytes)
+                            # Try to get model info
+                            try:
+                                model_output = subprocess.check_output(f"lsblk -d -n -o MODEL {dev_path}", shell=True, text=True).strip()
+                                model = model_output if model_output and model_output != '-' else "Unknown model"
+                            except:
+                                model = "Unknown model"
+                            devices.append((name, f"{size_str} | {model}"))
+                            found_devices.add(name)
+                        except:
+                            continue
+    except Exception:
+        pass
+
+    # Final fallback: Direct device scanning
     if not devices:
-        for dev in sorted(list(shutil.glob("/dev/sd[a-z]")) + list(shutil.glob("/dev/nvme*n*"))):
-            if os.path.exists(dev):
-                try:
-                    size_bytes = int(subprocess.check_output(f"blockdev --getsize64 {dev}", shell=True, text=True))
-                    size_str = format_size(size_bytes)
-                except Exception:
-                    size_str = "Unknown size"
-                devices.append((os.path.basename(dev), f"{size_str} | Unknown model"))
+        for pattern in ["/dev/sd[a-z]", "/dev/nvme*n*", "/dev/vd[a-z]", "/dev/hd[a-z]"]:
+            for dev_path in sorted(Path("/").glob(pattern.lstrip("/"))):
+                if dev_path.exists() and dev_path.name not in found_devices:
+                    try:
+                        size_bytes = int(subprocess.check_output(f"blockdev --getsize64 {dev_path}", shell=True, text=True))
+                        size_str = format_size(size_bytes)
+                        devices.append((dev_path.name, f"{size_str} | Unknown model"))
+                    except:
+                        continue
+
     return devices
 
 
