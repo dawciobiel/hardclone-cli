@@ -2,14 +2,13 @@
 
 **Interactive partition backup creator with encryption, compression, and file splitting**
 
-<img width="660" height="359" alt="image" src="https://github.com/user-attachments/assets/69d5aa38-ecc8-4bc8-bafb-f5f21cf6b20a" />
-
-
 ![Version](https://img.shields.io/badge/version-v2.0.0-blue) ![License](https://img.shields.io/badge/license-GPL--3.0-green) ![Python](https://img.shields.io/badge/python-3.6+-blue) ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)
 
 ## 📖 Description
 
 Hardclone CLI is an interactive Python script that provides a user-friendly dialog interface for creating partition backups with advanced features like encryption, compression, and file splitting. Built for Linux systems, it uses the powerful `dd` command with additional processing pipelines to create secure and efficient backups.
+
+<img width="660" height="359" alt="image" src="https://github.com/user-attachments/assets/69d5aa38-ecc8-4bc8-bafb-f5f21cf6b20a" />
 
 ## ✨ Features
 
