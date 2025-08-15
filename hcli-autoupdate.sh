@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# hardclone-cli with Smart Auto-Update v1.2.0
+# hardclone-cli with Smart Auto-Update v1.2.0-alpha
 # Interactive CLI tool for creating and restoring disk/partition images with auto-update functionality
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -48,7 +48,7 @@
 #
 # EMBEDDED VERSION:
 #   This script contains a full copy of hardclone-cli as fallback.
-#   Version: v1.2.0
+#   Version: v1.2.0-alpha
 #
 # SECURITY NOTES:
 #   • Uses HTTPS for all GitHub communication
@@ -76,7 +76,7 @@
 set -euo pipefail
 
 # Configuration for auto-update mechanism
-readonly CURRENT_VERSION="v1.2.0"
+readonly CURRENT_VERSION="v1.2.0-alpha"
 readonly GITHUB_REPO="dawciobiel/hardclone-cli"
 readonly GITHUB_API_URL="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
 readonly TEMP_UPDATE_DIR="/tmp/hardclone-update"
