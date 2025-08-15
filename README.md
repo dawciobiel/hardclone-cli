@@ -227,4 +227,4 @@ If you find this tool useful, please consider giving it a star on GitHub!
 
 ------
 
-**⚠️ Disclaimer**: This tool performs low-level disk operations. Always backup important data before use. The author is not responsible for any data loss.
+**⚠️ Disclaimer**: This tool performs low-level disk operations. The author is not responsible for any data loss.
