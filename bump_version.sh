@@ -3,6 +3,7 @@ set -e
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <new_version>"
+    echo "Example version number: vMAJOR.MINOR.PATCH -> v5.1.3"
     exit 1
 fi
 
