@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Hardclone CLI - Partition Backup Creator with Dialog Interface (Python)
+Hardclone CLI - Partition Backup Creator/Restorer with Dialog Interface (Python)
 Author: Dawid Bielecki "dawciobiel"
 Version: {VERSION}
 License: GPL-3.0
 Description:
-    Interactive Python script for creating partition backups with encryption,
+    Interactive Python script for creating and restoring partition backups with encryption,
     compression, and file splitting.
 """
 
@@ -13,6 +13,7 @@ import os
 import subprocess
 import shutil
 import sys
+import glob
 from pathlib import Path
 import tempfile
 
@@ -50,12 +51,11 @@ def get_version():
     return "unknown"
 
 
-
 VERSION = get_version()
 
 d = dialog.Dialog(dialog="dialog")
 
-# Global variables
+# Global variables for backup
 DEVICE = ""
 PARTITION = ""
 OUTPUT_PATH = ""
@@ -64,6 +64,15 @@ ENCRYPT_PASSWORD = ""
 COMPRESS = False
 SPLIT = False
 SPLIT_SIZE = ""
+
+# Global variables for restore
+RESTORE_FILE = ""
+RESTORE_DEVICE = ""
+RESTORE_PARTITION = ""
+IS_ENCRYPTED = False
+IS_COMPRESSED = False
+IS_SPLIT = False
+RESTORE_PASSWORD = ""
 
 
 def format_size(bytes_size):
@@ -200,6 +209,20 @@ def select_device():
     DEVICE = "/dev/" + tag if not tag.startswith("/dev/") else tag
 
 
+def select_restore_device():
+    """Prompt user to select a storage device for restore."""
+    global RESTORE_DEVICE
+    devices = list_devices()
+    if not devices:
+        d.msgbox("No storage devices found!", width=60)
+        sys.exit(1)
+    choices = [(name, desc) for name, desc in devices]
+    code, tag = d.menu("Select destination device for restore:", choices=choices, width=70, height=15)
+    if code != d.DIALOG_OK:
+        sys.exit(0)
+    RESTORE_DEVICE = "/dev/" + tag if not tag.startswith("/dev/") else tag
+
+
 def list_partitions(device):
     """Return list of partitions for a given device."""
     partitions = []
@@ -223,7 +246,7 @@ def list_partitions(device):
     # fallback: direct /dev scanning
     if not partitions:
         base = os.path.basename(device)
-        for part_file in sorted(list(shutil.glob(f"/dev/{base}[0-9]*")) + list(shutil.glob(f"/dev/{base}p[0-9]*"))):
+        for part_file in sorted(list(glob.glob(f"/dev/{base}[0-9]*")) + list(glob.glob(f"/dev/{base}p[0-9]*"))):
             if os.path.exists(part_file):
                 try:
                     size_bytes = int(subprocess.check_output(f"blockdev --getsize64 {part_file}", shell=True, text=True))
@@ -253,6 +276,23 @@ def select_partition():
         sys.exit(1)
 
 
+def select_restore_partition():
+    """Prompt user to select a partition for restore."""
+    global RESTORE_PARTITION
+    partitions = list_partitions(RESTORE_DEVICE)
+    if not partitions:
+        d.msgbox(f"No partitions found on device {RESTORE_DEVICE}!", width=70)
+        sys.exit(1)
+    choices = [(name, desc) for name, desc in partitions]
+    code, tag = d.menu(f"Select destination partition on {RESTORE_DEVICE}:", choices=choices, width=80, height=15)
+    if code != d.DIALOG_OK:
+        sys.exit(0)
+    RESTORE_PARTITION = "/dev/" + tag if not tag.startswith("/dev/") else tag
+    if not os.path.exists(RESTORE_PARTITION):
+        d.msgbox(f"Error: Partition {RESTORE_PARTITION} does not exist!", width=60)
+        sys.exit(1)
+
+
 def select_output_path():
     """Prompt user to select output path for image file."""
     global OUTPUT_PATH
@@ -269,6 +309,69 @@ def select_output_path():
     partition_size = int(subprocess.check_output(f"blockdev --getsize64 {PARTITION}", shell=True, text=True))
     if partition_size > available_space:
         d.msgbox(f"Warning: Partition size ({format_size(partition_size)}) may exceed available space ({format_size(available_space)})!", width=70)
+
+
+def select_restore_file():
+    """Prompt user to select restore image file."""
+    global RESTORE_FILE
+    code, path = d.inputbox("Enter path to backup image file:", width=70)
+    if code != d.DIALOG_OK:
+        sys.exit(0)
+    RESTORE_FILE = path
+    if not os.path.exists(RESTORE_FILE):
+        d.msgbox(f"Error: File {RESTORE_FILE} does not exist!", width=60)
+        sys.exit(1)
+
+
+def detect_file_properties(file_path):
+    """Detect if file is encrypted, compressed, or split."""
+    global IS_ENCRYPTED, IS_COMPRESSED, IS_SPLIT
+
+    # Check for split files
+    base_dir = os.path.dirname(file_path)
+    base_name = os.path.basename(file_path)
+
+    # Look for split file patterns
+    split_patterns = [
+        f"{base_name}.*",  # file.ext.aa, file.ext.ab, etc.
+        f"{base_name.rsplit('.', 1)[0]}.*" if '.' in base_name else f"{base_name}.*"  # file.aa, file.ab, etc.
+    ]
+
+    split_files = []
+    for pattern in split_patterns:
+        matches = glob.glob(os.path.join(base_dir, pattern))
+        if len(matches) > 1:  # More than just the original file
+            split_files.extend(matches)
+
+    IS_SPLIT = len(split_files) > 1
+
+    # Check file extension and content to detect compression and encryption
+    IS_COMPRESSED = file_path.endswith('.gz') or file_path.endswith('.gz.enc')
+    IS_ENCRYPTED = file_path.endswith('.enc') or file_path.endswith('.gz.enc')
+
+    # If we can't determine from extension, try to detect from file content
+    if not IS_COMPRESSED and not IS_ENCRYPTED:
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(16)
+                # Check for gzip magic number
+                if header.startswith(b'\x1f\x8b'):
+                    IS_COMPRESSED = True
+                # OpenSSL encrypted files start with "Salted__"
+                elif header.startswith(b'Salted__'):
+                    IS_ENCRYPTED = True
+        except Exception:
+            pass
+
+
+def ask_restore_password():
+    """Ask for decryption password if needed."""
+    global RESTORE_PASSWORD
+    if IS_ENCRYPTED:
+        code, password = d.passwordbox("Enter decryption password:", width=50)
+        if code != d.DIALOG_OK:
+            sys.exit(0)
+        RESTORE_PASSWORD = password
 
 
 def select_encryption():
@@ -310,10 +413,10 @@ def select_split():
         SPLIT_SIZE = size
 
 
-def show_summary():
-    """Display summary of operation."""
+def show_backup_summary():
+    """Display summary of backup operation."""
     summary = f"""
-OPERATION SUMMARY:
+BACKUP OPERATION SUMMARY:
 
 Device: {DEVICE}
 Partition: {PARTITION}
@@ -322,9 +425,28 @@ Encryption: {'YES' if ENCRYPT else 'NO'}
 Compression: {'YES' if COMPRESS else 'NO'}
 File splitting: {'YES (' + SPLIT_SIZE + ')' if SPLIT else 'NO'}
 
-Continue with operation?
+Continue with backup operation?
 """
     code = d.yesno(summary, width=70)
+    return code == d.DIALOG_OK
+
+
+def show_restore_summary():
+    """Display summary of restore operation."""
+    summary = f"""
+RESTORE OPERATION SUMMARY:
+
+Source file: {RESTORE_FILE}
+Destination device: {RESTORE_DEVICE}
+Destination partition: {RESTORE_PARTITION}
+File is encrypted: {'YES' if IS_ENCRYPTED else 'NO'}
+File is compressed: {'YES' if IS_COMPRESSED else 'NO'}
+File is split: {'YES' if IS_SPLIT else 'NO'}
+
+WARNING: This will OVERWRITE all data on {RESTORE_PARTITION}!
+Are you sure you want to continue?
+"""
+    code = d.yesno(summary, width=80)
     return code == d.DIALOG_OK
 
 
@@ -350,7 +472,7 @@ def create_image():
         else:
             pipeline = f"openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:{ENCRYPT_PASSWORD} -out {out_file}.enc"
     elif SPLIT:
-        pipeline = f"split -b {SPLIT_SIZE} - {out_file}"
+        pipeline = f"split -b {SPLIT_SIZE} - {out_file}."
     else:
         cmd += f" of={out_file}"
 
@@ -372,9 +494,92 @@ def create_image():
         sys.exit(1)
 
 
-def main():
-    """Main program flow."""
-    d.msgbox(f"Welcome to Hardclone CLI v{VERSION} - Partition Backup Creator!", width=60)
+def restore_image():
+    """Execute the partition restore."""
+    # Build the command pipeline for reading the file
+    input_cmd = ""
+
+    if IS_SPLIT:
+        # Find all split files
+        base_dir = os.path.dirname(RESTORE_FILE)
+        base_name = os.path.basename(RESTORE_FILE)
+
+        # Try different split file patterns
+        split_files = []
+        patterns = [
+            f"{RESTORE_FILE}.*",
+            f"{RESTORE_FILE.rsplit('.', 1)[0]}.*" if '.' in base_name else f"{RESTORE_FILE}.*"
+        ]
+
+        for pattern in patterns:
+            matches = sorted(glob.glob(pattern))
+            if len(matches) > 1:
+                split_files = matches
+                break
+
+        if not split_files:
+            d.msgbox("ERROR: Could not find split files!", width=50)
+            sys.exit(1)
+
+        # Use cat to join split files
+        split_files_str = " ".join(f'"{f}"' for f in split_files)
+        input_cmd = f"cat {split_files_str}"
+    else:
+        input_cmd = f"cat {RESTORE_FILE}"
+
+    # Build the pipeline for processing the data
+    pipeline_parts = []
+
+    # First handle decryption if needed
+    if IS_ENCRYPTED:
+        pipeline_parts.append(f"openssl enc -aes-256-cbc -d -salt -pbkdf2 -pass pass:{RESTORE_PASSWORD}")
+
+    # Then handle decompression if needed
+    if IS_COMPRESSED:
+        pipeline_parts.append("gunzip")
+
+    # Finally write to partition
+    pipeline_parts.append(f"dd of={RESTORE_PARTITION} bs=1M")
+
+    # Combine all parts
+    if pipeline_parts:
+        full_cmd = f"{input_cmd} | " + " | ".join(pipeline_parts)
+    else:
+        full_cmd = f"{input_cmd} | dd of={RESTORE_PARTITION} bs=1M"
+
+    d.infobox("Starting partition restore...\nThis may take a long time.", width=50)
+    try:
+        subprocess.run(full_cmd, shell=True, check=True)
+        msg = f"Partition restored successfully!\nDestination: {RESTORE_PARTITION}"
+        if IS_SPLIT:
+            msg += "\nJoined split files"
+        if IS_COMPRESSED:
+            msg += "\nDecompressed file"
+        if IS_ENCRYPTED:
+            msg += "\nDecrypted file"
+        d.msgbox(msg, width=70)
+    except subprocess.CalledProcessError as e:
+        error_msg = "ERROR: Failed to restore partition image!"
+        if IS_ENCRYPTED:
+            error_msg += "\nPossible causes:\n- Wrong password\n- Corrupted file"
+        d.msgbox(error_msg, width=60)
+        sys.exit(1)
+
+
+def select_operation():
+    """Ask user to select backup or restore operation."""
+    choices = [
+        ("backup", "Create backup image from partition"),
+        ("restore", "Restore partition from backup image")
+    ]
+    code, tag = d.menu("Select operation:", choices=choices, width=60, height=10)
+    if code != d.DIALOG_OK:
+        sys.exit(0)
+    return tag
+
+
+def backup_workflow():
+    """Execute backup workflow."""
     select_device()
     select_partition()
     select_output_path()
@@ -382,10 +587,36 @@ def main():
     select_compression()
     select_split()
 
-    if show_summary():
+    if show_backup_summary():
         create_image()
     else:
-        d.msgbox("Operation cancelled by user.", width=50)
+        d.msgbox("Backup operation cancelled by user.", width=50)
+
+
+def restore_workflow():
+    """Execute restore workflow."""
+    select_restore_file()
+    detect_file_properties(RESTORE_FILE)
+    ask_restore_password()
+    select_restore_device()
+    select_restore_partition()
+
+    if show_restore_summary():
+        restore_image()
+    else:
+        d.msgbox("Restore operation cancelled by user.", width=50)
+
+
+def main():
+    """Main program flow."""
+    d.msgbox(f"Welcome to Hardclone CLI v{VERSION} - Partition Backup Creator/Restorer!", width=70)
+
+    operation = select_operation()
+
+    if operation == "backup":
+        backup_workflow()
+    elif operation == "restore":
+        restore_workflow()
 
 
 if __name__ == "__main__":
