@@ -609,7 +609,7 @@ def restore_workflow():
 
 def main():
     """Main program flow."""
-    d.msgbox(f"Welcome to Hardclone CLI v{VERSION} - Partition Backup Creator/Restorer!", width=70)
+    d.msgbox(f"Welcome to Hardclone CLI {VERSION} - Partition Backup Creator/Restorer!", width=70)
 
     operation = select_operation()
 
