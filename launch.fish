@@ -1,8 +1,4 @@
-#!/usr/bin/env fish
-
-# Enable optional debug settings for Qt
-# set -x QT_DEBUG_PLUGINS 1
-# set -e QT_QPA_PLATFORM_PLUGIN_PATH
+#!/usr/bin/fish
 
 # Activate Python virtual environment
 source ./.venv/bin/activate.fish
