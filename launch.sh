@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-# Enable optional debug settings for Qt
-# export QT_DEBUG_PLUGINS=1
-# unset QT_QPA_PLATFORM_PLUGIN_PATH
-
 # Activate Python virtual environment
 source ./.venv/bin/activate
 
