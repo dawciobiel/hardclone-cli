@@ -17,6 +17,19 @@ import glob
 from pathlib import Path
 import tempfile
 
+def ensure_root():
+    # Check UID of process (0 = root)
+    if os.geteuid() != 0:
+        print("Restarting with sudo...")
+        try:
+            # Restart the same script by 'sudo'
+            subprocess.check_call(["sudo", sys.executable] + sys.argv)
+        except subprocess.CalledProcessError as e:
+            sys.exit(e.returncode)
+        sys.exit(0)
+
+ensure_root()
+
 try:
     import dialog  # python3-dialog
 except ImportError:
